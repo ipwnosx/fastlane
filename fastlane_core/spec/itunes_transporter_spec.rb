@@ -227,6 +227,8 @@ describe FastlaneCore do
         ENV.delete("FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT")
       end
 
+      RSpec::Support::ObjectFormatter.default_instance.max_formatted_output_length = 1024
+
       describe "upload command generation" do
         it 'generates the correct command' do
           transporter = FastlaneCore::ItunesTransporter.new('fabric.devtools@gmail.com', "!> p@$s_-+=w'o%rd\"&#*<", false)
