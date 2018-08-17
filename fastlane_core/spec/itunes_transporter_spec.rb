@@ -231,10 +231,8 @@ describe FastlaneCore do
         it 'generates the correct command' do
           transporter = FastlaneCore::ItunesTransporter.new('fabric.devtools@gmail.com', "!> p@$s_-+=w'o%rd\"&#*<", false)
           command = java_upload_command
-          # If we are not on Mac with Xcode >= 7.3, switch to shell script method
-          command = shell_upload_command unless FastlaneCore::Helper.mac? && Gem::Version.new(FastlaneCore::Helper.xcode_version) < Gem::Version.new('7.3')
-          # If we are neither on Mac or Windows, switch to java method again (= Linux)
-          command = java_upload_command unless FastlaneCore::Helper.mac? || FastlaneCore::Helper.windows?
+          # If we are on Windows or Mac with Xcode <= 7.3, switch to shell script method
+          command = shell_upload_command if (FastlaneCore::Helper.windows? || FastlaneCore::Helper.mac? && Gem::Version.new(FastlaneCore::Helper.xcode_version) < Gem::Version.new('7.3'))
           expect(transporter.upload('my.app.id', '/tmp')).to eq(command)
         end
       end
@@ -243,10 +241,8 @@ describe FastlaneCore do
         it 'generates the correct command' do
           transporter = FastlaneCore::ItunesTransporter.new('fabric.devtools@gmail.com', "!> p@$s_-+=w'o%rd\"&#*<", false)
           command = java_download_command
-          # If we are not on Mac with Xcode >= 7.3, switch to shell script method
-          command = shell_download_command unless FastlaneCore::Helper.mac? && Gem::Version.new(FastlaneCore::Helper.xcode_version) < Gem::Version.new('7.3')
-          # If we are neither on Mac or Windows, switch to java method again (= Linux)
-          command = java_download_command unless FastlaneCore::Helper.mac? || FastlaneCore::Helper.windows?
+          # If we are on Windows or Mac with Xcode <= 7.3, switch to shell script method
+          command = shell_download_command if (FastlaneCore::Helper.windows? || FastlaneCore::Helper.mac? && Gem::Version.new(FastlaneCore::Helper.xcode_version) < Gem::Version.new('7.3'))
           expect(transporter.download('my.app.id', '/tmp')).to eq(command)
         end
       end
