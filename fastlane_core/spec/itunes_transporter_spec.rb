@@ -199,7 +199,10 @@ describe FastlaneCore do
     end
 
     describe "with `FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT` set" do
-      before(:each) { ENV["FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT"] = "1" }
+      before(:each) do
+        ENV["FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT"] = "1"
+        allow(File).to receive(:exist?).with("C:/Program Files (x86)/itms").and_return(true) if FastlaneCore::Helper.windows?
+      end
 
       describe "upload command generation" do
         it 'generates a call to the shell script' do
@@ -218,23 +221,33 @@ describe FastlaneCore do
       after(:each) { ENV.delete("FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT") }
     end
 
-    describe "with the code running on Windows" do
+    describe "with no special configuration" do
       before(:each) do
-        allow(FastlaneCore::Helper).to receive(:windows?).and_return(true)
+        allow(File).to receive(:exist?).and_return(true)
         ENV.delete("FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT")
       end
 
       describe "upload command generation" do
-        it 'generates a call to the shell script even without `FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT` being set' do
+        it 'generates the correct command' do
           transporter = FastlaneCore::ItunesTransporter.new('fabric.devtools@gmail.com', "!> p@$s_-+=w'o%rd\"&#*<", false)
-          expect(transporter.upload('my.app.id', '/tmp')).to eq(shell_upload_command)
+          command = java_upload_command
+          # If we are not on Mac with Xcode >= 7.3, switch to shell script method
+          command = shell_upload_command unless FastlaneCore::Helper.mac? && Gem::Version.new(FastlaneCore::Helper.xcode_version) < Gem::Version.new('7.3')
+          # If we are neither on Mac or Windows, switch to java method again (= Linux)
+          command = java_upload_command unless FastlaneCore::Helper.mac? || FastlaneCore::Helper.windows?
+          expect(transporter.upload('my.app.id', '/tmp')).to eq(command)
         end
       end
 
       describe "download command generation" do
-        it 'generates a call to the shell scripteven without `FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT` being set' do
+        it 'generates the correct command' do
           transporter = FastlaneCore::ItunesTransporter.new('fabric.devtools@gmail.com', "!> p@$s_-+=w'o%rd\"&#*<", false)
-          expect(transporter.download('my.app.id', '/tmp')).to eq(shell_download_command)
+          command = java_download_command
+          # If we are not on Mac with Xcode >= 7.3, switch to shell script method
+          command = shell_download_command unless FastlaneCore::Helper.mac? && Gem::Version.new(FastlaneCore::Helper.xcode_version) < Gem::Version.new('7.3')
+          # If we are neither on Mac or Windows, switch to java method again (= Linux)
+          command = java_download_command unless FastlaneCore::Helper.mac? || FastlaneCore::Helper.windows?
+          expect(transporter.download('my.app.id', '/tmp')).to eq(command)
         end
       end
     end
