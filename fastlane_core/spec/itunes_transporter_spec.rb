@@ -223,7 +223,7 @@ describe FastlaneCore do
 
     describe "with no special configuration" do
       before(:each) do
-        allow(File).to receive(:exist?).and_return(true)
+        allow(File).to receive(:exist?).and_return(true) unless FastlaneCore::Helper.mac?
         ENV.delete("FASTLANE_ITUNES_TRANSPORTER_USE_SHELL_SCRIPT")
       end
 
