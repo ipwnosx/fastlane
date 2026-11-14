@@ -89,6 +89,18 @@ module Frameit
       frame.rotate(-rotation)
       @image.rotate(-rotation)
 
+      # Optional screen masks preserve asymmetric corners and camera cutouts.
+      # A portrait mask is applied after normalizing the screenshot orientation.
+      if offset['mask']
+        mask_path = File.join(FrameDownloader.templates_path, offset['mask'])
+        UI.user_error!("Could not find screen mask '#{mask_path}'") unless File.file?(mask_path)
+        mask = MiniMagick::Image.open(mask_path)
+        mask.resize("#{image.width}x#{image.height}!")
+        @image = image.composite(mask, "png") do |c|
+          c.compose("CopyOpacity")
+        end
+      end
+
       # Debug Mode: Add filename to frame
       if self.debug_mode
         filename = File.basename(@frame_path, ".*")
@@ -106,6 +118,26 @@ module Frameit
           c.fill('white')
           c.pointsize(font_size)
           c.annotate(annotate_offset.to_s, filename.to_s)
+        end
+      end
+
+      # Apply rounded corners for the specifically matched iPhone 14, 16, and 17 device identifiers
+      if ["iphone-14", "iphone14", "iphone-16", "iphone16", "iphone-17", "iphone17"].any? { |id| screenshot.device.id.to_s.include?(id) }
+
+        maskData = MiniMagick::Tool::Convert.new do |img|
+          img.size("#{screenshot.size[0]}x#{screenshot.size[1]}")
+          img.canvas('none')
+          img.draw("roundrectangle 0,0,#{screenshot.size[0]},#{screenshot.size[1]},100,100")
+          img << 'png:-'
+        end
+
+        # Create a mask
+        mask = MiniMagick::Image.read(maskData)
+
+        @image = @image.composite(mask, "png") do |c|
+          c.channel("A")
+          c.compose("DstIn")
+          c.alpha("on")
         end
       end
 
@@ -325,7 +357,7 @@ module Frameit
     end
 
     def put_title_into_background(background, stack_title)
-      text_images = build_text_images(image.width - 2 * horizontal_frame_padding, image.height - 2 * vertical_frame_padding, stack_title)
+      text_images = build_text_images(image.width - 2 * horizontal_frame_padding, image.height - 2 * vertical_frame_padding)
 
       keyword = text_images[:keyword]
       title = text_images[:title]
@@ -390,7 +422,7 @@ module Frameit
       return font_size if !font_size.nil? && font_size > 0
 
       font_scale_factor = @config['font_scale_factor'] || 0.1
-      UI.user_error!("Parameter 'font_scale_factor' can not be 0. Please provide a value larger than 0.0 (default = 0.1).") if font_scale_factor == 0.0
+      UI.user_error!("Parameter 'font_scale_factor' cannot be 0. Please provide a value larger than 0.0 (default = 0.1).") if font_scale_factor == 0.0
       [@image.width * font_scale_factor].max.round
     end
 
@@ -400,7 +432,7 @@ module Frameit
     end
 
     # This will build up to 2 individual images with the title and optional keyword, which will then be added to the real image
-    def build_text_images(max_width, max_height, stack_title)
+    def build_text_images(max_width, max_height)
       words = [:keyword, :title].keep_if { |a| fetch_text(a) } # optional keyword/title
       results = {}
       trim_boxes = {}
@@ -439,7 +471,7 @@ module Frameit
 
         results[key] = text_image
 
-        # Natively trimming the image with .trim will result in the loss of the common baseline between the text in all images when side-by-side (e.g. stack_title is false).
+        # Natively trimming the image with .trim will result in the loss of the common baseline between the text in all images when side-by-side.
         # Hence retrieve the calculated trim bounding box without actually trimming:
         calculated_trim_box = text_image.identify do |b|
           b.format("%@") # CALCULATED: trim bounding box (without actually trimming), see: http://www.imagemagick.org/script/escape.php
